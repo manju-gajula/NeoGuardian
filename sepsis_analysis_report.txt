@@ -1,0 +1,7 @@
+NEOGUARDIAN - NEONATAL SEPSIS EVALUATION REPORT
+============================================================
+
+Total Evaluation Episodes: 1946
+Unique Neonates: 986
+Culture Positive Sepsis: 128
+30-Day Mortality: 97

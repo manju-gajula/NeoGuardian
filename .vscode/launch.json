@@ -1,0 +1,36 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "NeoGuardian: Run Server & Web App (F5)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/run_server.py",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "NeoGuardian: Run Pytest Suite",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": [
+        "backend/tests/test_api.py",
+        "-v"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "NeoGuardian: Verify System End-to-End",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/verify_system_end_to_end.py",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ]
+}

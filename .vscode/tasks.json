@@ -1,0 +1,30 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start NeoGuardian (Batch Launcher)",
+      "type": "shell",
+      "command": ".\\run_neoguardian.bat",
+      "windows": {
+        "command": ".\\run_neoguardian.bat"
+      },
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Run Pytest Suite",
+      "type": "shell",
+      "command": ".\\.venv\\Scripts\\python.exe -m pytest backend/tests/test_api.py -v",
+      "problemMatcher": []
+    },
+    {
+      "label": "Rebuild Frontend",
+      "type": "shell",
+      "command": "cd frontend && npm run build && powershell -Command \"Remove-Item -Path '..\\backend\\app\\static\\assets\\*' -Force -Recurse -ErrorAction SilentlyContinue; Copy-Item -Path 'dist\\*' -Destination '..\\backend\\app\\static' -Recurse -Force\"",
+      "problemMatcher": []
+    }
+  ]
+}

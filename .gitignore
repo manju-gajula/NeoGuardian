@@ -1,0 +1,41 @@
+# Python virtual environments & bytecode
+.venv/
+venv/
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local tools & installer scripts
+.tools/
+install_mingit.ps1
+
+# Node.js & Vite build artifacts
+node_modules/
+frontend/node_modules/
+frontend/dist/
+.npm
+npm-debug.log*
+
+# IDE settings
+.idea/
+*.swp
+*.swo
+
+# Large raw unread ECG continuous waveform dat files (R-peaks are in .qrsc)
+data/picsdb/*_ecg.dat
+
+# Explicitly ensure required clinical assets & static UI are tracked
+!backend/app/static/
+!backend/app/static/**
+!backend/app/models/
+!backend/app/models/*.joblib
+!data/sepsis/
+!data/sepsis/*.csv
+!data/picsdb/*.hea
+!data/picsdb/*.qrsc
+!data/picsdb/*.resp
+!data/picsdb/*_resp.dat
