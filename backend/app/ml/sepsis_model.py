@@ -1,6 +1,6 @@
 """
 NeoGuardian Sepsis & Mortality Machine Learning Predictor
-Wraps pre-trained Random Forest models and serialized TreeSHAP explainers to estimate:
+Wraps pre-trained Random Forest models and TreeSHAP explainers to estimate:
   1) Culture-Confirmed Sepsis Risk Probability
   2) 30-Day Neonatal Mortality Risk Probability
 Provides mathematically rigorous, instance-level TreeSHAP feature attributions.
@@ -10,6 +10,7 @@ import os
 import joblib
 import pandas as pd
 import numpy as np
+import shap
 from typing import Dict, Any, List, Tuple
 
 
@@ -97,6 +98,7 @@ class SepsisModelManager:
         return cls._instance
 
     def load_models(self):
+        # 1. Load Sepsis Model
         if os.path.exists(self.sepsis_model_path):
             try:
                 self.sepsis_model = joblib.load(self.sepsis_model_path)
@@ -104,6 +106,7 @@ class SepsisModelManager:
             except Exception as e:
                 print(f"[SepsisModel] Error loading sepsis model: {e}")
 
+        # 2. Load Mortality Model
         if os.path.exists(self.mortality_model_path):
             try:
                 self.mortality_model = joblib.load(self.mortality_model_path)
@@ -111,19 +114,45 @@ class SepsisModelManager:
             except Exception as e:
                 print(f"[SepsisModel] Error loading mortality model: {e}")
 
+        # 3. Load or Initialize Sepsis TreeSHAP Explainer
         if os.path.exists(self.sepsis_shap_path):
             try:
                 self.sepsis_explainer = joblib.load(self.sepsis_shap_path)
-                print("[SepsisModel] Loaded sepsis TreeSHAP explainer.")
+                print("[SepsisModel] Loaded sepsis TreeSHAP explainer from file.")
             except Exception as e:
-                print(f"[SepsisModel] Error loading sepsis TreeSHAP explainer: {e}")
+                print(f"[SepsisModel] Note: Rebuilding sepsis TreeSHAP explainer directly from model ({e})")
+                if self.sepsis_model is not None:
+                    try:
+                        self.sepsis_explainer = shap.TreeExplainer(self.sepsis_model)
+                        print("[SepsisModel] Successfully initialized sepsis TreeSHAP explainer.")
+                    except Exception as ex:
+                        print(f"[SepsisModel] Error initializing sepsis TreeSHAP: {ex}")
+        elif self.sepsis_model is not None:
+            try:
+                self.sepsis_explainer = shap.TreeExplainer(self.sepsis_model)
+                print("[SepsisModel] Initialized sepsis TreeSHAP explainer directly.")
+            except Exception as ex:
+                print(f"[SepsisModel] Error initializing sepsis TreeSHAP: {ex}")
 
+        # 4. Load or Initialize Mortality TreeSHAP Explainer
         if os.path.exists(self.mortality_shap_path):
             try:
                 self.mortality_explainer = joblib.load(self.mortality_shap_path)
-                print("[SepsisModel] Loaded mortality TreeSHAP explainer.")
+                print("[SepsisModel] Loaded mortality TreeSHAP explainer from file.")
             except Exception as e:
-                print(f"[SepsisModel] Error loading mortality TreeSHAP explainer: {e}")
+                print(f"[SepsisModel] Note: Rebuilding mortality TreeSHAP explainer directly from model ({e})")
+                if self.mortality_model is not None:
+                    try:
+                        self.mortality_explainer = shap.TreeExplainer(self.mortality_model)
+                        print("[SepsisModel] Successfully initialized mortality TreeSHAP explainer.")
+                    except Exception as ex:
+                        print(f"[SepsisModel] Error initializing mortality TreeSHAP: {ex}")
+        elif self.mortality_model is not None:
+            try:
+                self.mortality_explainer = shap.TreeExplainer(self.mortality_model)
+                print("[SepsisModel] Initialized mortality TreeSHAP explainer directly.")
+            except Exception as ex:
+                print(f"[SepsisModel] Error initializing mortality TreeSHAP: {ex}")
 
     def _prepare_features(self, req_dict: Dict[str, Any]) -> pd.DataFrame:
         row = {}
@@ -140,9 +169,16 @@ class SepsisModelManager:
 
         try:
             raw_shap = explainer.shap_values(X)
-            # Handle binary classification formats
+            # Handle binary classification formats across different shap versions
             if isinstance(raw_shap, list) and len(raw_shap) == 2:
                 vals = raw_shap[1][0]
+            elif hasattr(raw_shap, "values"):
+                # Explanation object
+                ev = raw_shap.values
+                if len(ev.shape) == 3:
+                    vals = ev[0, :, 1]
+                else:
+                    vals = ev[0]
             elif len(np.shape(raw_shap)) == 3:
                 vals = raw_shap[0, :, 1]
             elif len(np.shape(raw_shap)) == 2:
