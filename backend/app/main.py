@@ -42,6 +42,16 @@ async def lifespan(app: FastAPI):
     models_ok = (model_mgr.sepsis_model is not None and model_mgr.mortality_model is not None)
     print(f"[Startup] Sepsis & Mortality ML models loaded: {models_ok}")
 
+    # 3. Pre-warm waveform caches for the 10 monitored infants
+    from app.ml.waveform_features import load_ecg_rpeaks, load_apnea_annotations
+    for rec in loader.waveform_records[:10]:
+        try:
+            load_ecg_rpeaks(rec)
+            load_apnea_annotations(rec)
+        except Exception as e:
+            print(f"[Startup] Note warming cache for {rec}: {e}")
+    print(f"[Startup] Pre-warmed cardiorespiratory waveform caches.")
+
     print("=" * 65)
     print("  NEOGUARDIAN REST API IS READY FOR CLINICAL CLIENTS")
     print("=" * 65)
