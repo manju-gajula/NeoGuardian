@@ -38,16 +38,7 @@ def build_patient_summary(p: dict, include_shap: bool = False) -> PatientSummary
 @router.get("", response_model=List[PatientSummary])
 def list_patients():
     loader = DataLoader.get_instance()
-    patients = loader.list_patients()
-
-    # include_shap=False ensures fast batch response (<10ms)
-    summaries = [build_patient_summary(p, include_shap=False) for p in patients]
-
-    # Sort so RED and YELLOW alerts appear at the top
-    severity_rank = {"RED": 0, "YELLOW": 1, "GREEN": 2}
-    summaries.sort(key=lambda s: (severity_rank.get(s.ndi_badge.status, 3), -s.patient_number))
-
-    return summaries
+    return loader.get_cached_patient_summaries()
 
 
 @router.get("/{patient_id}", response_model=PatientDetail)

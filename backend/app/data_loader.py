@@ -116,6 +116,108 @@ class DataLoader:
 
         print(f"[DataLoader] Patient registry initialized with {len(self.patient_index)} patients.")
 
+        self._cached_summaries: Optional[List[Any]] = None
+        self._cached_alerts: Optional[Any] = None
+
+    def precompute_telemetry_cache(self):
+        """
+        Precomputes and caches patient summaries and alerts at server startup
+        so that subsequent API queries respond in < 1ms.
+        """
+        from app.ml.ndi_engine import evaluate_patient_telemetry
+        from app.schemas import PatientSummary, ConditionBadge, AlertItem, AlertsResponse
+        from datetime import datetime
+
+        summaries = []
+        alerts = []
+
+        for p in self.list_patients():
+            eval_res = evaluate_patient_telemetry(p, include_shap=False)
+            summary = PatientSummary(
+                id=eval_res["id"],
+                patient_number=eval_res["patient_number"],
+                infant_record_id=eval_res["infant_record_id"],
+                has_waveform=eval_res["has_waveform"],
+                gestational_age_weeks=eval_res["gestational_age_weeks"],
+                birth_weight_kg=eval_res["birth_weight_kg"],
+                sex=eval_res["sex"],
+                current_age_days=eval_res["current_age_days"],
+                temp_celsius=eval_res["temp_celsius"],
+                intubated=eval_res["intubated"],
+                central_line=eval_res["central_line"],
+                apnea_badge=ConditionBadge(**eval_res["apnea_badge"]),
+                bradycardia_badge=ConditionBadge(**eval_res["bradycardia_badge"]),
+                sepsis_badge=ConditionBadge(**eval_res["sepsis_badge"]),
+                ndi_badge=ConditionBadge(**eval_res["ndi_badge"])
+            )
+            summaries.append(summary)
+
+            ndi_result = eval_res["ndi_result"]
+            band = ndi_result["ndi_band"]
+            score = ndi_result["ndi_score"]
+
+            if band in ("RED", "YELLOW"):
+                triggers = []
+                if eval_res["apnea_rate"] >= 2.5 or eval_res["apnea_max"] >= 30.0:
+                    triggers.append("APNEA")
+                if eval_res["min_hr"] < 90.0 or eval_res["brady_rate"] >= 1.5:
+                    triggers.append("BRADYCARDIA")
+                if eval_res["sepsis_prob"] >= 0.20 or eval_res["temp_celsius"] < 36.5 or eval_res["temp_celsius"] >= 38.0:
+                    triggers.append("SEPSIS")
+
+                if len(triggers) >= 2:
+                    source_condition = "COMBINED"
+                    headline = f"Multimodal Cardiorespiratory & Septic Decompensation ({' + '.join(triggers)})"
+                elif len(triggers) == 1:
+                    source_condition = triggers[0]
+                    headline = f"Isolated {source_condition.title()} Instability Alert"
+                else:
+                    source_condition = "COMBINED"
+                    headline = "Elevated Neonatal Decompensation Risk"
+
+                explanation = (
+                    f"NDI {score:.0f}/100. Key vitals: Temp {eval_res['temp_celsius']:.1f}°C, lowest HR {eval_res['min_hr']:.0f} BPM, "
+                    f"Apnea rate {eval_res['apnea_rate']:.1f}/hr. CVL: {'Yes' if eval_res['central_line'] else 'No'}, Intubated: {'Yes' if eval_res['intubated'] else 'No'}."
+                )
+
+                alerts.append(AlertItem(
+                    id=f"ALT-{len(alerts)+1:03d}",
+                    patient_id=eval_res["id"],
+                    patient_display_name=eval_res["display_id"],
+                    severity=band,
+                    source_condition=source_condition,
+                    contributing_conditions=triggers,
+                    headline=headline,
+                    explanation=explanation,
+                    ndi_score=score,
+                    timestamp=datetime.now().strftime("%H:%M:%S")
+                ))
+
+        severity_rank = {"RED": 0, "YELLOW": 1, "GREEN": 2}
+        summaries.sort(key=lambda s: (severity_rank.get(s.ndi_badge.status, 3), -s.patient_number))
+        alerts.sort(key=lambda a: (0 if a.severity == "RED" else 1, -a.ndi_score))
+
+        red_count = sum(1 for a in alerts if a.severity == "RED")
+        yellow_count = sum(1 for a in alerts if a.severity == "YELLOW")
+
+        self._cached_summaries = summaries
+        self._cached_alerts = AlertsResponse(
+            total_alerts=len(alerts),
+            critical_red_count=red_count,
+            elevated_yellow_count=yellow_count,
+            alerts=alerts
+        )
+
+    def get_cached_patient_summaries(self) -> List[Any]:
+        if self._cached_summaries is None:
+            self.precompute_telemetry_cache()
+        return self._cached_summaries
+
+    def get_cached_alerts(self) -> Any:
+        if self._cached_alerts is None:
+            self.precompute_telemetry_cache()
+        return self._cached_alerts
+
     def get_patient(self, patient_id: str) -> Optional[Dict[str, Any]]:
         # Allow lookup by exact key (e.g. 'infant1') or numerical string ('1')
         if patient_id in self.patient_index:

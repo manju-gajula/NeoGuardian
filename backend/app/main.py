@@ -52,6 +52,10 @@ async def lifespan(app: FastAPI):
             print(f"[Startup] Note warming cache for {rec}: {e}")
     print(f"[Startup] Pre-warmed cardiorespiratory waveform caches.")
 
+    # 4. Precompute telemetry and alerts cache
+    loader.precompute_telemetry_cache()
+    print(f"[Startup] Precomputed patient summaries & alerts cache.")
+
     print("=" * 65)
     print("  NEOGUARDIAN REST API IS READY FOR CLINICAL CLIENTS")
     print("=" * 65)
