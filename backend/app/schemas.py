@@ -189,6 +189,7 @@ class AlertItem(BaseModel):
     patient_display_name: str
     severity: str = Field(..., description="RED or YELLOW")
     source_condition: str = Field(..., description="APNEA, BRADYCARDIA, SEPSIS, or COMBINED")
+    contributing_conditions: Optional[List[str]] = Field(default_factory=list, description="All conditions triggering this alert")
     headline: str
     explanation: str
     ndi_score: float

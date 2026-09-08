@@ -172,6 +172,7 @@ def get_active_alerts():
                 patient_display_name=display_name,
                 severity=band,
                 source_condition=source_condition,
+                contributing_conditions=triggers,
                 headline=headline,
                 explanation=explanation,
                 ndi_score=score,

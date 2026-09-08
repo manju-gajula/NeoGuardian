@@ -142,6 +142,7 @@ export const App: React.FC = () => {
         patient_display_name: `${targetPatient.id.toUpperCase()} (DEMO)`,
         severity: 'RED',
         source_condition: 'COMBINED',
+        contributing_conditions: ['APNEA', 'BRADYCARDIA', 'SEPSIS'],
         headline: 'Critical Cardiorespiratory & Thermal Decompensation',
         explanation: 'DEMO SIMULATION: Rapid escalation triggered. Prolonged respiratory cessation >45s with heart rate drop to 72 BPM and pyrexia (38.9°C).',
         ndi_score: 84,

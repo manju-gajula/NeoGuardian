@@ -155,6 +155,7 @@ export interface AlertItem {
   patient_display_name: string;
   severity: 'RED' | 'YELLOW';
   source_condition: 'APNEA' | 'BRADYCARDIA' | 'SEPSIS' | 'COMBINED';
+  contributing_conditions?: string[];
   headline: string;
   explanation: string;
   ndi_score: number;

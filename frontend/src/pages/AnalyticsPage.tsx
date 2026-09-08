@@ -64,7 +64,6 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
   const waveformPatients = patients.filter((p) => p.has_waveform);
   const avgApneaRate = waveformPatients.length > 0
     ? (waveformPatients.reduce((acc, p) => {
-        // Extract rate from metric or proxy
         const match = p.apnea_badge.metric.match(/([\d.]+)/);
         return acc + (match ? parseFloat(match[1]) : 1.0);
       }, 0) / waveformPatients.length).toFixed(2)
@@ -77,17 +76,32 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
       }, 0) / waveformPatients.length).toFixed(0)
     : '108';
 
-  // 4. Alerts Breakdown by Condition Type
-  const apneaAlerts = alerts.filter((a) => a.source_condition === 'APNEA').length;
-  const bradyAlerts = alerts.filter((a) => a.source_condition === 'BRADYCARDIA').length;
-  const sepsisAlerts = alerts.filter((a) => a.source_condition === 'SEPSIS').length;
-  const combinedAlerts = alerts.filter((a) => a.source_condition === 'COMBINED').length;
+  // 4. Alerts Breakdown by Condition Trigger (multi-factor aware)
+  const hasConditionTrigger = (alert: AlertItem, condition: 'APNEA' | 'BRADYCARDIA' | 'SEPSIS'): boolean => {
+    if (alert.contributing_conditions && alert.contributing_conditions.length > 0) {
+      return alert.contributing_conditions.includes(condition);
+    }
+    if (alert.source_condition === condition) return true;
+    if (alert.source_condition === 'COMBINED') {
+      const combinedText = `${alert.headline} ${alert.explanation} ${alert.patient_display_name}`.toUpperCase();
+      return combinedText.includes(condition);
+    }
+    return false;
+  };
+
+  const apneaTriggerCount = alerts.filter((a) => hasConditionTrigger(a, 'APNEA')).length;
+  const bradyTriggerCount = alerts.filter((a) => hasConditionTrigger(a, 'BRADYCARDIA')).length;
+  const sepsisTriggerCount = alerts.filter((a) => hasConditionTrigger(a, 'SEPSIS')).length;
+  const combinedAlertCount = alerts.filter((a) => {
+    if (a.contributing_conditions && a.contributing_conditions.length >= 2) return true;
+    return a.source_condition === 'COMBINED';
+  }).length;
 
   const conditionAlertData = [
-    { condition: 'Apnea', count: apneaAlerts, fill: '#0284c7' },
-    { condition: 'Bradycardia', count: bradyAlerts, fill: '#f43f5e' },
-    { condition: 'Sepsis', count: sepsisAlerts, fill: '#d97706' },
-    { condition: 'Combined', count: combinedAlerts, fill: '#6366f1' }
+    { condition: 'Apnea', count: apneaTriggerCount, fill: '#0284c7', desc: 'Respiratory cessation triggers' },
+    { condition: 'Bradycardia', count: bradyTriggerCount, fill: '#f43f5e', desc: 'Heart rate deceleration triggers' },
+    { condition: 'Sepsis', count: sepsisTriggerCount, fill: '#d97706', desc: 'Clinical infection risk triggers' },
+    { condition: 'Combined (2+)', count: combinedAlertCount, fill: '#6366f1', desc: 'Multi-system concurrent triggers' }
   ];
 
   // 5. Gestational Age vs Mean NDI Curve
@@ -293,20 +307,22 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
 
         {/* Chart 2: Alarms by Condition Type */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-2xs transition-colors duration-200">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-2">
             <div>
               <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                 Active Alarms by Condition Trigger
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Decompensation events categorized by primary cause</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Contributing triggers across active alerts (multi-factor aware)
+              </p>
             </div>
-            <span className="text-xs font-mono text-slate-400">{alerts.length} Active</span>
+            <span className="text-xs font-mono text-slate-400">{alerts.length} Active Alerts</span>
           </div>
 
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={conditionAlertData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <BarChart data={conditionAlertData} margin={{ top: 15, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                 <XAxis dataKey="condition" stroke={textColor} fontSize={11} tickLine={false} />
                 <YAxis stroke={textColor} fontSize={11} tickLine={false} allowDecimals={false} />
@@ -318,7 +334,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
                     fontSize: '12px',
                     color: isDark ? '#f8fafc' : '#0f172a'
                   }}
-                  formatter={(value) => [`${value} Alerts`, 'Count']}
+                  formatter={(value, name, props) => [`${value} Contributing Alerts`, props.payload.desc || 'Count']}
                 />
                 <Bar dataKey="count" radius={[6, 6, 0, 0]}>
                   {conditionAlertData.map((entry, index) => (
