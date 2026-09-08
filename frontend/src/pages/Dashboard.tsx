@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
 import { PatientSummary } from '../types';
-import { Search, ChevronRight, Activity, Users, AlertCircle, CheckCircle, Clock } from 'lucide-react';
+import { Search, ChevronRight, Activity, Users, AlertCircle, CheckCircle, Clock, Play, RotateCcw, AlertTriangle } from 'lucide-react';
 
 interface DashboardProps {
   patients: PatientSummary[];
   loading: boolean;
   error: string | null;
   onSelectPatient: (patientId: string) => void;
+  isSimulating?: boolean;
+  simulatedPatientId?: string | null;
+  onStartSimulation?: () => void;
+  onResetSimulation?: () => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -14,6 +18,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
   loading,
   error,
   onSelectPatient,
+  isSimulating = false,
+  simulatedPatientId = null,
+  onStartSimulation,
+  onResetSimulation
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'WAVEFORM' | 'CRITICAL' | 'ELEVATED'>('ALL');
@@ -44,6 +52,52 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* Simulation Control Toolbar Banner */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-2xs transition-colors duration-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className={`p-2.5 rounded-lg ${isSimulating ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 animate-pulse' : 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400'}`}>
+            {isSimulating ? <AlertTriangle className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                Clinical Simulation Mode
+              </h3>
+              {isSimulating && (
+                <span className="text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+                  Demo Active
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              {isSimulating
+                ? `Simulating rapid cardiorespiratory decompensation on ${simulatedPatientId?.toUpperCase()} for presentation demo.`
+                : 'Test automated alert triage and NDI escalation by simulating an acute infant decompensation event.'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+          {!isSimulating ? (
+            <button
+              onClick={onStartSimulation}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-xs transition cursor-pointer"
+            >
+              <Play className="w-3.5 h-3.5 fill-current" />
+              <span>Simulate Critical Event</span>
+            </button>
+          ) : (
+            <button
+              onClick={onResetSimulation}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold border border-slate-300 dark:border-slate-700 transition cursor-pointer"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Reset Simulation</span>
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Top Clinical Triage Summary Banner */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex items-center justify-between shadow-2xs transition-colors duration-200">
@@ -170,12 +224,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
             const leftBorder = isRed ? 'border-l-4 border-l-rose-500' : isYellow ? 'border-l-4 border-l-amber-500' : 'border-l-4 border-l-emerald-500';
 
             const ndiScore = patient.ndi_badge.label.replace('NDI: ', '');
+            const isSimulatedCard = patient.is_simulated;
 
             return (
               <div
                 key={patient.id}
                 onClick={() => onSelectPatient(patient.id)}
-                className={`bg-white dark:bg-slate-900 rounded-xl p-5 border border-slate-200/90 dark:border-slate-800 shadow-2xs hover:shadow-md transition-all duration-150 cursor-pointer ${leftBorder}`}
+                className={`bg-white dark:bg-slate-900 rounded-xl p-5 border border-slate-200/90 dark:border-slate-800 shadow-2xs hover:shadow-md transition-all duration-200 cursor-pointer ${leftBorder} ${
+                  isSimulatedCard ? 'ring-2 ring-rose-500/70 shadow-rose-100 dark:shadow-rose-950/40' : ''
+                }`}
               >
                 {/* Header info */}
                 <div className="flex items-start justify-between">
@@ -189,6 +246,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           Waveform
                         </span>
                       )}
+                      {isSimulatedCard && (
+                        <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-700 animate-pulse">
+                          Demo Simulation
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                       GA: <strong className="text-slate-700 dark:text-slate-300 font-medium">{patient.gestational_age_weeks.toFixed(0)} wks</strong> | BW:{' '}
@@ -200,7 +262,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   {/* ONE Dominant Focal NDI Badge */}
                   <div className="text-right">
                     <span
-                      className={`text-xs px-2.5 py-1 rounded-md font-bold inline-block border ${
+                      className={`text-xs px-2.5 py-1 rounded-md font-bold inline-block border transition-colors duration-200 ${
                         isRed
                           ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/60'
                           : isYellow
@@ -219,17 +281,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 {/* Clean Sub-Condition Indicator Row */}
                 <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-3 gap-2 text-xs text-slate-600 dark:text-slate-400">
                   <div className="flex items-center gap-1.5">
-                    <span className={`w-2 h-2 rounded-full ${getStatusDot(patient.apnea_badge.status)} shrink-0`} />
+                    <span className={`w-2 h-2 rounded-full ${getStatusDot(patient.apnea_badge.status)} shrink-0 transition-colors duration-200`} />
                     <span className="truncate">Apnea</span>
                   </div>
 
                   <div className="flex items-center gap-1.5">
-                    <span className={`w-2 h-2 rounded-full ${getStatusDot(patient.bradycardia_badge.status)} shrink-0`} />
+                    <span className={`w-2 h-2 rounded-full ${getStatusDot(patient.bradycardia_badge.status)} shrink-0 transition-colors duration-200`} />
                     <span className="truncate">Brady</span>
                   </div>
 
                   <div className="flex items-center gap-1.5">
-                    <span className={`w-2 h-2 rounded-full ${getStatusDot(patient.sepsis_badge.status)} shrink-0`} />
+                    <span className={`w-2 h-2 rounded-full ${getStatusDot(patient.sepsis_badge.status)} shrink-0 transition-colors duration-200`} />
                     <span className="truncate">Sepsis</span>
                   </div>
                 </div>

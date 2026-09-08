@@ -20,6 +20,7 @@ export interface PatientSummary {
   bradycardia_badge: ConditionBadge;
   sepsis_badge: ConditionBadge;
   ndi_badge: ConditionBadge;
+  is_simulated?: boolean;
 }
 
 export interface PatientDetail extends PatientSummary {
@@ -158,6 +159,9 @@ export interface AlertItem {
   explanation: string;
   ndi_score: number;
   timestamp: string;
+  is_simulated?: boolean;
+  acknowledged?: boolean;
+  acknowledged_at?: string;
 }
 
 export interface AlertsResponse {

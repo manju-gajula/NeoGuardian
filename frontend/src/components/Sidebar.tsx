@@ -1,9 +1,9 @@
 import React from 'react';
-import { LayoutDashboard, AlertTriangle, Calculator, HeartPulse, Wind, Bug, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, AlertTriangle, Calculator, BarChart3, HeartPulse, Wind, Bug, ShieldCheck } from 'lucide-react';
 
 interface SidebarProps {
-  currentTab: 'dashboard' | 'alerts' | 'calculator';
-  onSelectTab: (tab: 'dashboard' | 'alerts' | 'calculator') => void;
+  currentTab: 'dashboard' | 'alerts' | 'calculator' | 'analytics';
+  onSelectTab: (tab: 'dashboard' | 'alerts' | 'calculator' | 'analytics') => void;
   redAlertCount: number;
   yellowAlertCount: number;
 }
@@ -59,6 +59,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   {totalAlerts}
                 </span>
               )}
+            </button>
+
+            <button
+              onClick={() => onSelectTab('analytics')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition cursor-pointer ${
+                currentTab === 'analytics'
+                  ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-semibold'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'
+              }`}
+            >
+              <BarChart3 className={`w-4 h-4 ${currentTab === 'analytics' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'}`} />
+              <span>Population Analytics</span>
             </button>
 
             <button
