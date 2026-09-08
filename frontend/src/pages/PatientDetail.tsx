@@ -302,6 +302,7 @@ export const PatientDetail: React.FC<PatientDetailProps> = ({ patientId, onBack,
                   subtitle={`Window: ${windowStart.toFixed(0)}s to ${(windowStart + 180).toFixed(0)}s (~${(windowStart / 60).toFixed(1)}m elapsed)`}
                   unit=" a.u."
                   isDark={isDark}
+                  allowPlayback={Boolean(patient?.has_waveform)}
                 />
               )}
 
@@ -402,6 +403,7 @@ export const PatientDetail: React.FC<PatientDetailProps> = ({ patientId, onBack,
                   subtitle="Dashed line represents clinical neonatal bradycardia alarm limit (100 BPM)"
                   unit=" BPM"
                   isDark={isDark}
+                  allowPlayback={Boolean(patient?.has_waveform)}
                 />
               )}
 
