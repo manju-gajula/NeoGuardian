@@ -9,7 +9,7 @@ from datetime import datetime
 from app.schemas import NDIResponse, AlertsResponse, AlertItem, HealthResponse
 from app.data_loader import DataLoader
 from app.ml.sepsis_model import SepsisModelManager
-from app.ml.ndi_engine import compute_fused_ndi
+from app.ml.ndi_engine import compute_fused_ndi, evaluate_patient_telemetry
 
 router = APIRouter(prefix="/api", tags=["NDI, Alerts & System Health"])
 
@@ -24,60 +24,11 @@ def get_patient_ndi(patient_id: str):
             detail=f"Patient '{patient_id}' not found. Valid IDs include 'infant1' to 'infant10' or numerical patient IDs."
         )
 
-    clin = p.get("clinical_data", {})
-    has_wave = p.get("has_waveform", False)
-    pid = p["id"]
-
-    ga = float(clin.get("gestational_age_at_birth_weeks", 34.0))
-    bw = float(clin.get("birth_weight_kg", 2.0))
-    temp = float(clin.get("temp_celsius", 37.2))
-    cvl = bool(clin.get("central_venous_line", 0))
-
-    # Condition 1 & 2 values
-    if has_wave:
-        if pid in ("infant1", "infant8"):
-            apnea_rate = 3.8
-            apnea_dur = 45.7
-            lowest_hr = 78.0
-            brady_rate = 2.4
-        elif pid in ("infant3", "infant6", "infant9"):
-            apnea_rate = 1.8
-            apnea_dur = 24.7
-            lowest_hr = 94.0
-            brady_rate = 1.1
-        else:
-            apnea_rate = 0.7
-            apnea_dur = 12.0
-            lowest_hr = 124.0
-            brady_rate = 0.2
-    else:
-        intubated = bool(clin.get("intubated_at_time_of_sepsis_evaluation", 0))
-        apnea_rate = 1.5 if intubated else 0.5
-        apnea_dur = 18.0 if intubated else 8.0
-        lowest_hr = 85.0 if clin.get("inotrope_at_time_of_sepsis_eval", 0) == 1 else (96.0 if temp < 36.5 else 135.0)
-        brady_rate = 1.8 if clin.get("inotrope_at_time_of_sepsis_eval", 0) == 1 else 0.2
-
-    # Condition 3: ML model probability
-    sepsis_mgr = SepsisModelManager.get_instance()
-    sepsis_pred = sepsis_mgr.predict_sepsis(clin)
-    sepsis_prob = sepsis_pred["sepsis_probability"]
-
-    # Fused NDI
-    ndi_result = compute_fused_ndi(
-        apnea_events_per_hour=apnea_rate,
-        apnea_max_duration_sec=apnea_dur,
-        lowest_hr_bpm=lowest_hr,
-        brady_spells_per_hour=brady_rate,
-        sepsis_prob=sepsis_prob,
-        temp_celsius=temp,
-        has_cvl=cvl,
-        ga_weeks=ga,
-        birth_weight_kg=bw
-    )
+    eval_res = evaluate_patient_telemetry(p, include_shap=False)
 
     return NDIResponse(
-        patient_id=p["id"],
-        **ndi_result
+        patient_id=eval_res["id"],
+        **eval_res["ndi_result"]
     )
 
 
@@ -88,57 +39,21 @@ def get_active_alerts():
     alerts = []
 
     for p in patients:
-        pid = p["id"]
-        clin = p.get("clinical_data", {})
-        has_wave = p.get("has_waveform", False)
-        display_name = p.get("display_id", pid.upper())
-
-        ga = float(clin.get("gestational_age_at_birth_weeks", 34.0))
-        bw = float(clin.get("birth_weight_kg", 2.0))
-        temp = float(clin.get("temp_celsius", 37.2))
-        cvl = bool(clin.get("central_venous_line", 0))
-        intubated = bool(clin.get("intubated_at_time_of_sepsis_evaluation", 0))
-
-        if has_wave:
-            if pid in ("infant1", "infant8"):
-                apnea_rate = 3.8
-                apnea_dur = 45.7
-                lowest_hr = 78.0
-                brady_rate = 2.4
-            elif pid in ("infant3", "infant6", "infant9"):
-                apnea_rate = 1.8
-                apnea_dur = 24.7
-                lowest_hr = 94.0
-                brady_rate = 1.1
-            else:
-                apnea_rate = 0.7
-                apnea_dur = 12.0
-                lowest_hr = 124.0
-                brady_rate = 0.2
-        else:
-            apnea_rate = 1.5 if intubated else 0.5
-            apnea_dur = 18.0 if intubated else 8.0
-            lowest_hr = 85.0 if clin.get("inotrope_at_time_of_sepsis_eval", 0) == 1 else (96.0 if temp < 36.5 else 135.0)
-            brady_rate = 1.8 if clin.get("inotrope_at_time_of_sepsis_eval", 0) == 1 else 0.2
-
-        sepsis_mgr = SepsisModelManager.get_instance()
-        sepsis_pred = sepsis_mgr.predict_sepsis(clin)
-        sepsis_prob = sepsis_pred["sepsis_probability"]
-
-        ndi_result = compute_fused_ndi(
-            apnea_events_per_hour=apnea_rate,
-            apnea_max_duration_sec=apnea_dur,
-            lowest_hr_bpm=lowest_hr,
-            brady_spells_per_hour=brady_rate,
-            sepsis_prob=sepsis_prob,
-            temp_celsius=temp,
-            has_cvl=cvl,
-            ga_weeks=ga,
-            birth_weight_kg=bw
-        )
-
+        eval_res = evaluate_patient_telemetry(p, include_shap=False)
+        pid = eval_res["id"]
+        display_name = eval_res["display_id"]
+        ndi_result = eval_res["ndi_result"]
         score = ndi_result["ndi_score"]
         band = ndi_result["ndi_band"]
+
+        apnea_rate = eval_res["apnea_rate"]
+        apnea_dur = eval_res["apnea_max"]
+        lowest_hr = eval_res["min_hr"]
+        brady_rate = eval_res["brady_rate"]
+        sepsis_prob = eval_res["sepsis_prob"]
+        temp = eval_res["temp_celsius"]
+        cvl = eval_res["central_line"]
+        intubated = eval_res["intubated"]
 
         # Only register elevated or critical patients
         if band in ("RED", "YELLOW"):

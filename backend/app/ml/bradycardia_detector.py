@@ -8,7 +8,7 @@ import os
 import wfdb
 import numpy as np
 from typing import Dict, Any, List, Optional
-from app.ml.waveform_features import get_picsdb_path, load_ecg_rpeaks
+from app.ml.waveform_features import get_picsdb_path, load_ecg_rpeaks, load_picsdb_header
 
 
 BRADYCARDIA_THRESHOLD_BPM = 100.0
@@ -24,7 +24,7 @@ def detect_bradycardia_for_infant(
     over the selected time window.
     """
     record_path = get_picsdb_path(infant_id, "ecg")
-    header = wfdb.rdheader(record_path)
+    header = load_picsdb_header(record_path)
     total_record_sec = header.sig_len / header.fs
 
     # Load all R-peak times in seconds

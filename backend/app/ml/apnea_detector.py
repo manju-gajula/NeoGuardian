@@ -9,7 +9,7 @@ import wfdb
 import numpy as np
 from scipy.signal import butter, filtfilt, hilbert, medfilt
 from typing import Dict, Any, List, Optional
-from app.ml.waveform_features import get_picsdb_path, load_respiration_window
+from app.ml.waveform_features import get_picsdb_path, load_respiration_window, load_apnea_annotations, load_picsdb_header
 
 
 # Clinical settings consistent with detect_apnea_hybrid.py
@@ -35,7 +35,7 @@ def detect_apnea_for_infant(
     Returns downsampled waveform coordinates and detected apnea episodes.
     """
     record_path = get_picsdb_path(infant_id, "resp")
-    header = wfdb.rdheader(record_path)
+    header = load_picsdb_header(record_path)
     total_duration_sec = header.sig_len / header.fs
 
     # Load downsampled signal for the chart
@@ -63,8 +63,7 @@ def detect_apnea_for_infant(
     total_record_events = 0
 
     try:
-        ann = wfdb.rdann(record_path, "resp")
-        ann_times = np.asarray(ann.sample, dtype=np.float64) / float(ann.fs)
+        ann_times, ann_fs = load_apnea_annotations(infant_id)
         gaps = np.diff(ann_times)
         
         event_counter = 1

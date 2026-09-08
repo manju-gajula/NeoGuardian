@@ -215,7 +215,7 @@ class SepsisModelManager:
             print(f"[SepsisModel] SHAP extraction warning: {e}")
             return []
 
-    def predict_sepsis(self, req_dict: Dict[str, Any]) -> Dict[str, Any]:
+    def predict_sepsis(self, req_dict: Dict[str, Any], include_shap: bool = True) -> Dict[str, Any]:
         X = self._prepare_features(req_dict)
         
         if self.sepsis_model is not None:
@@ -238,7 +238,7 @@ class SepsisModelManager:
             level = "LOW"
             rec = "LOW RISK: Expected neonatal baseline parameters."
 
-        contributions = self._extract_shap_attributions(X, self.sepsis_explainer)
+        contributions = self._extract_shap_attributions(X, self.sepsis_explainer) if include_shap else []
 
         return {
             "sepsis_probability": round(prob, 4),
@@ -249,7 +249,7 @@ class SepsisModelManager:
             "clinical_recommendation": rec
         }
 
-    def predict_mortality(self, req_dict: Dict[str, Any]) -> Dict[str, Any]:
+    def predict_mortality(self, req_dict: Dict[str, Any], include_shap: bool = True) -> Dict[str, Any]:
         X = self._prepare_features(req_dict)
 
         if self.mortality_model is not None:
@@ -272,7 +272,7 @@ class SepsisModelManager:
             level = "LOW"
             rec = "LOW RISK: Low mortality hazard index."
 
-        contributions = self._extract_shap_attributions(X, self.mortality_explainer)
+        contributions = self._extract_shap_attributions(X, self.mortality_explainer) if include_shap else []
 
         return {
             "mortality_probability": round(prob, 4),

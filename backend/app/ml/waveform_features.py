@@ -5,6 +5,7 @@ for PICSDB Respiration (500 Hz) and ECG (250 Hz) signals.
 """
 
 import os
+import functools
 import wfdb
 import numpy as np
 from typing import Tuple, Dict, Any, Optional, List
@@ -33,6 +34,11 @@ def get_picsdb_path(infant_id: str, modality: str = "resp") -> str:
     return record_path
 
 
+@functools.lru_cache(maxsize=32)
+def load_picsdb_header(record_path: str):
+    return wfdb.rdheader(record_path)
+
+
 def load_respiration_window(
     infant_id: str,
     start_sec: float = 13080.0,
@@ -47,7 +53,7 @@ def load_respiration_window(
         original_fs (float): 500.0
     """
     record_path = get_picsdb_path(infant_id, "resp")
-    header = wfdb.rdheader(record_path)
+    header = load_picsdb_header(record_path)
     fs = float(header.fs)
 
     total_samples = header.sig_len
@@ -85,12 +91,11 @@ def load_respiration_window(
     return downsampled_times, downsampled_signal, fs
 
 
+@functools.lru_cache(maxsize=32)
 def load_ecg_rpeaks(infant_id: str) -> Tuple[np.ndarray, float]:
     """
     Loads verified ECG R-peaks from the .qrsc annotation file.
-    Returns:
-        rpeak_times (np.ndarray): timestamps of R-peaks in seconds
-        ecg_fs (float): ECG sampling frequency (usually 250 Hz)
+    Cached in memory for instantaneous sub-millisecond responses.
     """
     record_path = get_picsdb_path(infant_id, "ecg")
     ann = wfdb.rdann(record_path, "qrsc")
@@ -100,3 +105,16 @@ def load_ecg_rpeaks(infant_id: str) -> Tuple[np.ndarray, float]:
     rpeak_times = peak_samples / fs
 
     return rpeak_times, fs
+
+
+@functools.lru_cache(maxsize=32)
+def load_apnea_annotations(infant_id: str) -> Tuple[np.ndarray, float]:
+    """
+    Loads verified respiration pause annotations from the .resp file.
+    Cached in memory for instantaneous sub-millisecond responses.
+    """
+    record_path = get_picsdb_path(infant_id, "resp")
+    ann = wfdb.rdann(record_path, "resp")
+    fs = float(ann.fs)
+    samples = np.asarray(ann.sample, dtype=np.float64) / fs
+    return samples, fs
